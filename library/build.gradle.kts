@@ -102,8 +102,14 @@ android {
 
 publishing {
     publications {
-        withType<MavenPublication> {
+        create<MavenPublication>("release") {
             groupId = "com.lagradost.api"
+            artifactId = "library"
+            version = "1.0"
+
+            afterEvaluate {
+                from(components["release"])
+            }
         }
     }
 }
