@@ -11,7 +11,6 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
-
 val javaTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
 val tmpFilePath = System.getProperty("user.home") + "/work/_temp/keystore/"
 val prereleaseStoreFile: File? = File(tmpFilePath).listFiles()?.first()
