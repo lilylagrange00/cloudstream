@@ -83,18 +83,17 @@ android {
     }
 }
 
-publishing {
-    publications {
-        // THIS IS THE FIX!!!
-        create<MavenPublication>("release") {
-            groupId = "com.lagradost.api"
-            artifactId = "library"
-            version = "1.0"
-
-            // Multiplatform component NOT "release"
-            from(components["kotlin"])
-        }
-    }
+/* ------------------------------
+   Dokka -> javadocJar (for IDE tooltips)
+   ------------------------------ */
+// Create a javadoc JAR from Dokka HTML output.
+// NOTE: Do NOT create a sourcesJar manually — KMP/AGP already provides one.
+tasks.register<Jar>("javadocJar") {
+    // Ensure Dokka HTML is generated before packaging
+    dependsOn(tasks.named("dokkaHtml"))
+    archiveClassifier.set("javadoc")
+    // dokkaHtml task produces the HTML site; take its output directory
+    from(tasks.named("dokkaHtml").flatMap { it.outputs.files })
 }
 
 dokka {
@@ -112,6 +111,25 @@ dokka {
                 remoteUrl("https://github.com/recloudstream/cloudstream/tree/master")
                 remoteLineSuffix = "#L"
             }
+        }
+    }
+}
+
+/* ------------------------------
+   Publishing (Kotlin MPP component, JitPack-compatible)
+   ------------------------------ */
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            groupId = "com.lagradost.api"
+            artifactId = "library"
+            version = "1.0"
+
+            // Publish the multiplatform component (not the Android-only "release")
+            from(components["kotlin"])
+
+            // Attach Dokka HTML as javadoc jar to allow IDE doc popups
+            artifact(tasks.named("javadocJar"))
         }
     }
 }
