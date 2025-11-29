@@ -1,139 +1,63 @@
-import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
-import com.codingfeline.buildkonfig.compiler.FieldSpec
-import org.jetbrains.dokka.gradle.DokkaTask
-import org.jetbrains.dokka.gradle.DokkaTaskPartial
-import org.jetbrains.dokka.gradle.engine.parameters.KotlinPlatform
-import org.jetbrains.dokka.gradle.engine.parameters.VisibilityModifier
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
-import java.util.Locale
-
 plugins {
+    kotlin("multiplatform")
+    id("com.android.library")
     id("maven-publish")
-    alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.buildkonfig)
-    alias(libs.plugins.dokka)
+    id("com.codingfeline.buildkonfig")
+    id("org.jetbrains.dokka")
 }
-
-val javaTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
 
 kotlin {
     androidTarget()
     jvm()
 
-    compilerOptions {
-        freeCompilerArgs.addAll(
-            "-Xexpect-actual-classes",
-            "-Xannotation-default-target=param-property"
-        )
-    }
-
     sourceSets {
-        all {
-            languageSettings.optIn("com.lagradost.cloudstream3.Prerelease")
+        val commonMain by getting {
+            dependencies {
+                implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.nicehttp)
+                implementation(libs.jackson.module.kotlin)
+            }
         }
-
-        commonMain.dependencies {
-            implementation(libs.nicehttp)
-            implementation(libs.jackson.module.kotlin)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.fuzzywuzzy)
-            implementation(libs.jsoup)
-            implementation(libs.rhino)
-            implementation(libs.newpipeextractor)
-            implementation(libs.tmdb.java)
-        }
-    }
-}
-
-tasks.withType<KotlinJvmCompile> {
-    compilerOptions {
-        jvmTarget.set(javaTarget)
-    }
-}
-
-buildkonfig {
-    packageName = "com.lagradost.api"
-    exposeObjectWithName = "BuildConfig"
-
-    defaultConfigs {
-        val isDebug = kotlin.runCatching { extra.get("isDebug") }.getOrNull() == true
-        buildConfigField(FieldSpec.Type.BOOLEAN, "DEBUG", isDebug.toString())
-
-        val localProperties = gradleLocalProperties(rootDir, project.providers)
-        buildConfigField(
-            FieldSpec.Type.STRING,
-            "MDL_API_KEY",
-            (System.getenv("MDL_API_KEY") ?: localProperties["mdl.key"]).toString()
-        )
     }
 }
 
 android {
     compileSdk = libs.versions.compileSdk.get().toInt()
-    sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
-
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
     }
-
     namespace = "com.lagradost.api"
+}
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.toVersion(javaTarget.target)
-        targetCompatibility = JavaVersion.toVersion(javaTarget.target)
+buildkonfig {
+    packageName = "com.lagradost.api"
+    defaultConfigs {
+        buildConfigField(com.codingfeline.buildkonfig.compiler.FieldSpec.Type.BOOLEAN, "DEBUG", "true")
     }
 }
 
-// ----------------- SOURCES & JAVADOC JARS -----------------
+// ---------------- Dokka v2 ----------------
+tasks.register<Jar>("javadocJar") {
+    dependsOn(tasks.named("dokkaHtml"))
+    archiveClassifier.set("javadoc")
+    from(tasks.named("dokkaHtml").get().outputs.files)
+}
 
-val sourcesJar by tasks.registering(Jar::class) {
+tasks.register<Jar>("sourcesJar") {
     archiveClassifier.set("sources")
     from(kotlin.sourceSets["commonMain"].kotlin)
 }
 
-val javadocJar by tasks.registering(Jar::class) {
-    dependsOn(tasks.named("dokkaHtml"))
-    archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml").flatMap { it.outputDirectoryProperty })
-}
-
-// ----------------- PUBLISHING -----------------
-
+// ---------------- Publishing ----------------
 publishing {
     publications {
-        // Multiplatform component
         create<MavenPublication>("release") {
+            from(components["kotlin"])
+            artifact(tasks.named("sourcesJar").get())
+            artifact(tasks.named("javadocJar").get())
             groupId = "com.lagradost.api"
             artifactId = "library"
             version = "1.0"
-
-            from(components["kotlin"])
-
-            artifact(sourcesJar.get())
-            artifact(javadocJar.get())
-        }
-    }
-}
-
-// ----------------- DOKKA -----------------
-
-dokka {
-    moduleName = "Library"
-    dokkaSourceSets {
-        configureEach {
-            analysisPlatform = KotlinPlatform.AndroidJVM
-            documentedVisibilities(
-                VisibilityModifier.Public,
-                VisibilityModifier.Protected
-            )
-
-            sourceLink {
-                localDirectory = file("..")
-                remoteUrl("https://github.com/recloudstream/cloudstream/tree/master")
-                remoteLineSuffix = "#L"
-            }
         }
     }
 }
