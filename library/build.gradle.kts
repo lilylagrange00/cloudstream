@@ -50,6 +50,7 @@ tasks.withType<KotlinJvmCompile> {
     }
 }
 
+// BuildKonfig
 buildkonfig {
     packageName = "com.lagradost.api"
     exposeObjectWithName = "BuildConfig"
@@ -67,6 +68,7 @@ buildkonfig {
     }
 }
 
+// Android config
 android {
     compileSdk = libs.versions.compileSdk.get().toInt()
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
@@ -83,19 +85,37 @@ android {
     }
 }
 
-/* ------------------------------
-   Dokka -> javadocJar (for IDE tooltips)
-   ------------------------------ */
-// Create a javadoc JAR from Dokka HTML output.
-// NOTE: Do NOT create a sourcesJar manually — KMP/AGP already provides one.
-tasks.register<Jar>("javadocJar") {
-    // Ensure Dokka HTML is generated before packaging
+// Tasks for Javadoc and sources jars
+val javadocJar by tasks.registering(Jar::class) {
     dependsOn(tasks.named("dokkaHtml"))
     archiveClassifier.set("javadoc")
-    // dokkaHtml task produces the HTML site; take its output directory
-    from(tasks.named("dokkaHtml").flatMap { it.outputs.files })
+    from(tasks.named("dokkaHtml").get().outputDirectory)
 }
 
+val sourcesJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("sources")
+    from(kotlin.sourceSets["commonMain"].kotlin)
+}
+
+// Publishing
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            groupId = "com.lagradost.api"
+            artifactId = "library"
+            version = "1.0"
+
+            // Multiplatform component
+            from(components["kotlin"])
+
+            // Attach sources and javadoc
+            artifact(sourcesJar.get())
+            artifact(javadocJar.get())
+        }
+    }
+}
+
+// Dokka
 dokka {
     moduleName = "Library"
     dokkaSourceSets {
@@ -111,25 +131,6 @@ dokka {
                 remoteUrl("https://github.com/recloudstream/cloudstream/tree/master")
                 remoteLineSuffix = "#L"
             }
-        }
-    }
-}
-
-/* ------------------------------
-   Publishing (Kotlin MPP component, JitPack-compatible)
-   ------------------------------ */
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            groupId = "com.lagradost.api"
-            artifactId = "library"
-            version = "1.0"
-
-            // Publish the multiplatform component (not the Android-only "release")
-            from(components["kotlin"])
-
-            // Attach Dokka HTML as javadoc jar to allow IDE doc popups
-            artifact(tasks.named("javadocJar"))
         }
     }
 }
