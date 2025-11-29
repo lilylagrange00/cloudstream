@@ -6,7 +6,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
-    id("maven-publish") // Gradle core plugin
+    id("maven-publish")
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
     alias(libs.plugins.buildkonfig)
@@ -17,6 +17,7 @@ val javaTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
 
 kotlin {
     version = "1.0.1"
+
     androidTarget()
     jvm()
 
@@ -33,14 +34,14 @@ kotlin {
         }
 
         commonMain.dependencies {
-            implementation(libs.nicehttp) // HTTP Lib
-            implementation(libs.jackson.module.kotlin) // JSON Parser
+            implementation(libs.nicehttp)
+            implementation(libs.jackson.module.kotlin)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.fuzzywuzzy) // Match Extractors
-            implementation(libs.jsoup) // HTML Parser
-            implementation(libs.rhino) // Run JavaScript
+            implementation(libs.fuzzywuzzy)
+            implementation(libs.jsoup)
+            implementation(libs.rhino)
             implementation(libs.newpipeextractor)
-            implementation(libs.tmdb.java) // TMDB API v3 Wrapper Made with RetroFit
+            implementation(libs.tmdb.java)
         }
     }
 }
@@ -57,19 +58,14 @@ buildkonfig {
 
     defaultConfigs {
         val isDebug = kotlin.runCatching { extra.get("isDebug") }.getOrNull() == true
-        if (isDebug) {
-            logger.quiet("Compiling library with debug flag")
-        } else {
-            logger.quiet("Compiling library with release flag")
-        }
         buildConfigField(FieldSpec.Type.BOOLEAN, "DEBUG", isDebug.toString())
 
-        // Reads local.properties
         val localProperties = gradleLocalProperties(rootDir, project.providers)
 
         buildConfigField(
             FieldSpec.Type.STRING,
-            "MDL_API_KEY", (System.getenv("MDL_API_KEY") ?: localProperties["mdl.key"]).toString()
+            "MDL_API_KEY",
+            (System.getenv("MDL_API_KEY") ?: localProperties["mdl.key"]).toString()
         )
     }
 }
@@ -82,7 +78,6 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
     }
 
-    // If this is the same com.lagradost.cloudstream3.R stops working
     namespace = "com.lagradost.api"
 
     compileOptions {
@@ -90,7 +85,6 @@ android {
         targetCompatibility = JavaVersion.toVersion(javaTarget.target)
     }
 
-    @Suppress("UnstableApiUsage")
     testOptions {
         targetSdk = libs.versions.targetSdk.get().toInt()
     }
@@ -98,6 +92,15 @@ android {
     lint {
         targetSdk = libs.versions.targetSdk.get().toInt()
     }
+}
+
+/* ------------------------------
+   DOKKA Javadoc JAR (for JitPack)
+   ------------------------------ */
+tasks.register<Jar>("javadocJar") {
+    dependsOn(tasks.dokkaHtml)
+    archiveClassifier.set("javadoc")
+    from(tasks.dokkaHtml.get().outputDirectory)
 }
 
 dokka {
@@ -109,7 +112,6 @@ dokka {
                 VisibilityModifier.Public,
                 VisibilityModifier.Protected
             )
-
             sourceLink {
                 localDirectory = file("..")
                 remoteUrl("https://github.com/recloudstream/cloudstream/tree/master")
@@ -120,24 +122,8 @@ dokka {
 }
 
 /* ------------------------------
-   PUBLISHING + JITPACK FIXES
+   Publishing (JitPack compatible)
    ------------------------------ */
-
-// Javadoc JAR (Dokka HTML)
-tasks.register<Jar>("javadocJar") {
-    dependsOn(tasks.dokkaHtml)
-    archiveClassifier.set("javadoc")
-    from(tasks.dokkaHtml.get().outputDirectory)
-}
-
-// Sources JAR
-tasks.register<Jar>("sourcesJar") {
-    archiveClassifier.set("sources")
-    from(kotlin.sourceSets["commonMain"].kotlin)
-    from(kotlin.sourceSets["androidMain"].kotlin)
-    from(kotlin.sourceSets["jvmMain"].kotlin)
-}
-
 publishing {
     publications {
         create<MavenPublication>("release") {
@@ -149,9 +135,8 @@ publishing {
                 from(components["release"])
             }
 
-            // Attach documentation + sources
+            // Attach Dokka HTML javadoc jar
             artifact(tasks["javadocJar"])
-            artifact(tasks["sourcesJar"])
         }
     }
 }
