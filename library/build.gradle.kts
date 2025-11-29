@@ -1,9 +1,12 @@
 import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import com.codingfeline.buildkonfig.compiler.FieldSpec
+import org.jetbrains.dokka.gradle.DokkaTask
+import org.jetbrains.dokka.gradle.DokkaTaskPartial
 import org.jetbrains.dokka.gradle.engine.parameters.KotlinPlatform
 import org.jetbrains.dokka.gradle.engine.parameters.VisibilityModifier
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import java.util.Locale
 
 plugins {
     id("maven-publish")
@@ -50,7 +53,6 @@ tasks.withType<KotlinJvmCompile> {
     }
 }
 
-// BuildKonfig
 buildkonfig {
     packageName = "com.lagradost.api"
     exposeObjectWithName = "BuildConfig"
@@ -68,7 +70,6 @@ buildkonfig {
     }
 }
 
-// Android config
 android {
     compileSdk = libs.versions.compileSdk.get().toInt()
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
@@ -85,37 +86,39 @@ android {
     }
 }
 
-// Tasks for Javadoc and sources jars
-val javadocJar by tasks.registering(Jar::class) {
-    dependsOn(tasks.named("dokkaHtml"))
-    archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml").get().outputDirectory)
-}
+// ----------------- SOURCES & JAVADOC JARS -----------------
 
 val sourcesJar by tasks.registering(Jar::class) {
     archiveClassifier.set("sources")
     from(kotlin.sourceSets["commonMain"].kotlin)
 }
 
-// Publishing
+val javadocJar by tasks.registering(Jar::class) {
+    dependsOn(tasks.named("dokkaHtml"))
+    archiveClassifier.set("javadoc")
+    from(tasks.named("dokkaHtml").flatMap { it.outputDirectoryProperty })
+}
+
+// ----------------- PUBLISHING -----------------
+
 publishing {
     publications {
+        // Multiplatform component
         create<MavenPublication>("release") {
             groupId = "com.lagradost.api"
             artifactId = "library"
             version = "1.0"
 
-            // Multiplatform component
             from(components["kotlin"])
 
-            // Attach sources and javadoc
             artifact(sourcesJar.get())
             artifact(javadocJar.get())
         }
     }
 }
 
-// Dokka
+// ----------------- DOKKA -----------------
+
 dokka {
     moduleName = "Library"
     dokkaSourceSets {
