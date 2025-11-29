@@ -16,8 +16,6 @@ plugins {
 val javaTarget = JvmTarget.fromTarget(libs.versions.jvmTarget.get())
 
 kotlin {
-    version = "1.0.1"
-
     androidTarget()
     jvm()
 
@@ -61,7 +59,6 @@ buildkonfig {
         buildConfigField(FieldSpec.Type.BOOLEAN, "DEBUG", isDebug.toString())
 
         val localProperties = gradleLocalProperties(rootDir, project.providers)
-
         buildConfigField(
             FieldSpec.Type.STRING,
             "MDL_API_KEY",
@@ -84,23 +81,20 @@ android {
         sourceCompatibility = JavaVersion.toVersion(javaTarget.target)
         targetCompatibility = JavaVersion.toVersion(javaTarget.target)
     }
-
-    testOptions {
-        targetSdk = libs.versions.targetSdk.get().toInt()
-    }
-
-    lint {
-        targetSdk = libs.versions.targetSdk.get().toInt()
-    }
 }
 
-/* ------------------------------
-   DOKKA Javadoc JAR (for JitPack)
-   ------------------------------ */
-tasks.register<Jar>("javadocJar") {
-    dependsOn(tasks.dokkaHtml)
-    archiveClassifier.set("javadoc")
-    from(tasks.dokkaHtml.get().outputDirectory)
+publishing {
+    publications {
+        // THIS IS THE FIX!!!
+        create<MavenPublication>("release") {
+            groupId = "com.lagradost.api"
+            artifactId = "library"
+            version = "1.0"
+
+            // Multiplatform component NOT "release"
+            from(components["kotlin"])
+        }
+    }
 }
 
 dokka {
@@ -112,31 +106,12 @@ dokka {
                 VisibilityModifier.Public,
                 VisibilityModifier.Protected
             )
+
             sourceLink {
                 localDirectory = file("..")
                 remoteUrl("https://github.com/recloudstream/cloudstream/tree/master")
                 remoteLineSuffix = "#L"
             }
-        }
-    }
-}
-
-/* ------------------------------
-   Publishing (JitPack compatible)
-   ------------------------------ */
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            groupId = "com.lagradost.api"
-            artifactId = "library"
-            version = "1.0"
-
-            afterEvaluate {
-                from(components["release"])
-            }
-
-            // Attach Dokka HTML javadoc jar
-            artifact(tasks["javadocJar"])
         }
     }
 }
