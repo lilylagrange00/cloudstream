@@ -100,35 +100,34 @@ android {
     }
 }
 
-// Task to package sources
-tasks.register<Jar>("sourcesJar") {
-    archiveClassifier.set("sources")
-    from(kotlin.sourceSets["commonMain"].kotlin.srcDirs)
-    from(android.sourceSets["main"].java.srcDirs)
-}
-
-// Task to package Dokka docs
-tasks.register<Jar>("javadocJar") {
-    archiveClassifier.set("javadoc")
-    from(tasks.named("dokkaHtml"))
-}
-
 publishing {
+
     publications {
+
         create<MavenPublication>("release") {
+
             groupId = "com.lagradost.api"
+
             artifactId = "library"
+
             version = "1.0"
 
+
+
             afterEvaluate {
+
                 from(components["release"])
+
             }
 
-            // Attach sources and docs
-            artifact(tasks["sourcesJar"])
-            artifact(tasks["javadocJar"])
+
+
+
+
         }
+
     }
+
 }
 
 dokka {
