@@ -100,20 +100,6 @@ android {
     }
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            groupId = "com.lagradost.api"
-            artifactId = "library"
-            version = "1.0"
-
-            afterEvaluate {
-                from(components["release"])
-            }
-        }
-    }
-}
-
 dokka {
     moduleName = "Library"
     dokkaSourceSets {
@@ -129,6 +115,43 @@ dokka {
                 remoteUrl("https://github.com/recloudstream/cloudstream/tree/master")
                 remoteLineSuffix = "#L"
             }
+        }
+    }
+}
+
+/* ------------------------------
+   PUBLISHING + JITPACK FIXES
+   ------------------------------ */
+
+// Javadoc JAR (Dokka HTML)
+tasks.register<Jar>("javadocJar") {
+    dependsOn(tasks.dokkaHtml)
+    archiveClassifier.set("javadoc")
+    from(tasks.dokkaHtml.get().outputDirectory)
+}
+
+// Sources JAR
+tasks.register<Jar>("sourcesJar") {
+    archiveClassifier.set("sources")
+    from(kotlin.sourceSets["commonMain"].kotlin)
+    from(kotlin.sourceSets["androidMain"].kotlin)
+    from(kotlin.sourceSets["jvmMain"].kotlin)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            groupId = "com.lagradost.api"
+            artifactId = "library"
+            version = "1.0"
+
+            afterEvaluate {
+                from(components["release"])
+            }
+
+            // Attach documentation + sources
+            artifact(tasks["javadocJar"])
+            artifact(tasks["sourcesJar"])
         }
     }
 }
